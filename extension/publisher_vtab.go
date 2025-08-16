@@ -55,8 +55,12 @@ func (vt *PublisherVirtualTable) Open() (sqlite.VirtualCursor, error) {
 }
 
 func (vt *PublisherVirtualTable) Disconnect() error {
+	var err error
+	if vt.loggerCloser != nil {
+		err = vt.loggerCloser.Close()
+	}
 	vt.client.Disconnect(200)
-	return nil
+	return err
 }
 
 func (vt *PublisherVirtualTable) Destroy() error {
