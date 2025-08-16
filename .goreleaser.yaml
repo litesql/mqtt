@@ -79,4 +79,4 @@ release:
     owner: litesql
     name: mqtt
 
-  draft: true
+  draft: false
