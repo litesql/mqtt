@@ -178,6 +178,7 @@ func (vt *SubscriberVirtualTable) messageHandler(c mqtt.Client, msg mqtt.Message
 		vt.logger.Error("insert data", "error", err, "topic", msg.Topic(), "message_id", msg.MessageID())
 		return
 	}
+	msg.Ack()
 }
 
 func (vt *SubscriberVirtualTable) onConnectionLost(client mqtt.Client, err error) {
