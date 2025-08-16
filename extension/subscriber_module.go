@@ -87,8 +87,12 @@ func (m *SubscriberModule) Connect(conn *sqlite.Conn, args []string, declare fun
 	}
 
 	err := conn.Exec(fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s(
+	    client_id TEXT,
+		message_id INTEGER,
 		topic TEXT,
 		payload BLOB,
+		qos INTEGER,
+		retained INTEGER,
 		timestamp DATETIME
 	)`, tableName), nil)
 	if err != nil {

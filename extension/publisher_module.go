@@ -77,7 +77,7 @@ func (m *PublisherModule) Connect(conn *sqlite.Conn, args []string, declare func
 	}
 
 	return vtab,
-		declare("CREATE TABLE x(topic TEXT, payload BLOB, qos INTEGER)")
+		declare("CREATE TABLE x(topic TEXT, payload BLOB, qos INTEGER, retained INTEGER)")
 }
 
 func sanitizeOptionValue(v string) string {

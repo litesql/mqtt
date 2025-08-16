@@ -12,7 +12,7 @@ const (
 	Password  = "password"   // password to connect to broker
 
 	// Subscribe module config
-	TableName = "table"  // table name where to store the incomming messages
+	TableName = "table"  // table name where to store the incoming messages
 	Logger    = "logger" // Log errors to "stdout, stderr or file:/path/to/log.txt"
 
 	DefaultTableName          = "mqtt_data"

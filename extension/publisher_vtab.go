@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/walterwanderley/sqlite"
@@ -29,6 +28,7 @@ func NewPublisherVirtualTable(name string, clientOptions *mqtt.ClientOptions, lo
 	vtab.loggerCloser = loggerCloser
 	vtab.logger = logger
 
+	clientOptions.SetAutoReconnect(true)
 	clientOptions.SetConnectionLostHandler(vtab.onConnectionLost)
 	clientOptions.SetOnConnectHandler(vtab.onConnectHandler)
 
@@ -64,34 +64,23 @@ func (vt *PublisherVirtualTable) Destroy() error {
 }
 
 func (vt *PublisherVirtualTable) Insert(values ...sqlite.Value) (int64, error) {
-	if len(values) < 3 {
-		return 0, fmt.Errorf("inform at least 3 values: Topic, Payload and QoS")
-	}
 	topic := values[0].Text()
+	if topic == "" {
+		return 0, fmt.Errorf("topic is required")
+	}
 	payload := values[1].Text()
 	qos := values[2].Int()
 	if qos < 0 || qos > 2 {
 		return 0, fmt.Errorf("QoS must be the number 0, 1 or 2")
 	}
-	var timeout time.Duration
-	if len(values) > 3 {
-		var err error
-		timeout, err = time.ParseDuration(values[3].Text())
-		if err != nil {
-			return 0, fmt.Errorf("timeout is invalid: %w", err)
-		}
+
+	retained := values[3].Int() > 0
+
+	tok := vt.client.Publish(topic, byte(qos), retained, payload)
+	if tok.Wait() && tok.Error() != nil {
+		return 0, fmt.Errorf("publisher error: %w", tok.Error())
 	}
 
-	tok := vt.client.Publish(topic, byte(qos), false, payload)
-	if timeout > 0 {
-		if tok.WaitTimeout(timeout) && tok.Error() != nil {
-			return 0, fmt.Errorf("publisher error: %w", tok.Error())
-		}
-	} else {
-		if tok.Wait() && tok.Error() != nil {
-			return 0, fmt.Errorf("publisher error: %w", tok.Error())
-		}
-	}
 	return 1, nil
 }
 

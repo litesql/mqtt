@@ -34,23 +34,47 @@ CREATE VIRTUAL TABLE temp.sub USING mqtt_sub(servers='tcp://localhost:1883', tab
 INSERT INTO temp.sub VALUES('my/topic', 0);
 ```
 
+Subscriber table schema:
+
+```sql
+TABLE temp.sub(
+  topic TEXT,
+  qos INTEGER
+)
+```
+
 ### Publisher
 
 ```sh
 # Create a virtual table using MQTT_PUB to configure the connection to the broker
 CREATE VIRTUAL TABLE temp.pub USING mqtt_pub(servers='tcp://localhost:1883');
 
-# Insert Topic, Payload and QoS into the created virtual table to publish messages
-INSERT INTO temp.pub VALUES('my/topic', 'hello', 0);
+# Insert Topic and Payload into the created virtual table to publish messages
+INSERT INTO temp.pub (topic, payload) VALUES('my/topic', 'hello');
+
+# Insert retained messages
+INSERT INTO temp.pub (topic, payload, retained) VALUES('my/topic', 'hi', 1);
+```
+
+Publisher table schema:
+
+```sql
+TABLE temp.pub(
+  topic TEXT,
+  payload BLOB,
+  qos INTEGER, -- 0, 1 or 2
+  retained INTEGER -- 0 = false, 1 = true
+)
 ```
 
 ### Stored messages
 
 ```sh
-
+# Set output mode (optional)
 .mode qbox
 
-SELECT * FROM mqtt_data;
+# Query for the incoming messages
+SELECT topic, payload, timestamp FROM mqtt_data;
 ┌────────────┬─────────┬───────────────────────────────────────┐
 │   topic    │ payload │               timestamp               │
 ├────────────┼─────────┼───────────────────────────────────────┤
@@ -59,17 +83,21 @@ SELECT * FROM mqtt_data;
 
 ```
 
-All incomming messages are stored in tables using the following schema:
+Incoming messages are stored in tables according to the following schema:
 
 ```sql
 TABLE mqtt_data(
+  client_id TEXT,
+  message_id INTEGER,
   topic TEXT,
   payload BLOB,
+  qos INTEGER, -- 0, 1 or 2
+  retained INTEGER, -- 0 = false, 1 = true
   timestamp DATETIME
 )
 ```
 
-### Manage subscriptions
+### Subscriptions management
 
 Query the subscription virtual table (the virtual table created using **mqtt_sub**) to view all the active subscriptions for the current SQLite connection.
 

@@ -33,7 +33,7 @@ type subscription struct {
 
 func NewSubscriberVirtualTable(virtualTableName string, clientOptions *mqtt.ClientOptions, tableName string, conn *sqlite.Conn, loggerDef string) (*SubscriberVirtualTable, error) {
 
-	stmt, _, err := conn.Prepare(fmt.Sprintf(`INSERT INTO %s(topic, payload, timestamp) VALUES(?, ?, ?)`, tableName))
+	stmt, _, err := conn.Prepare(fmt.Sprintf(`INSERT INTO %s(client_id, message_id, topic, payload, qos, retained, timestamp) VALUES(?, ?, ?, ?, ?, ?, ?)`, tableName))
 	if err != nil {
 		return nil, err
 	}
@@ -52,6 +52,7 @@ func NewSubscriberVirtualTable(virtualTableName string, clientOptions *mqtt.Clie
 	vtab.loggerCloser = loggerCloser
 	vtab.logger = logger
 
+	clientOptions.SetAutoReconnect(true)
 	clientOptions.SetConnectionLostHandler(vtab.onConnectionLost)
 	clientOptions.SetOnConnectHandler(vtab.onConnectHandler)
 
@@ -170,12 +171,21 @@ func (vt *SubscriberVirtualTable) messageHandler(c mqtt.Client, msg mqtt.Message
 		vt.logger.Error("reset statement", "error", err, "topic", msg.Topic(), "message_id", msg.MessageID())
 		return
 	}
-	vt.stmt.BindText(1, msg.Topic())
-	vt.stmt.BindText(2, string(msg.Payload()))
-	vt.stmt.BindText(3, time.Now().Format(time.RFC3339Nano))
+	clientOpts := c.OptionsReader()
+	vt.stmt.BindText(1, clientOpts.ClientID())
+	vt.stmt.BindInt64(2, int64(msg.MessageID()))
+	vt.stmt.BindText(3, msg.Topic())
+	vt.stmt.BindText(4, string(msg.Payload()))
+	vt.stmt.BindInt64(5, int64(msg.Qos()))
+	var retained int64
+	if msg.Retained() {
+		retained = 1
+	}
+	vt.stmt.BindInt64(6, retained)
+	vt.stmt.BindText(7, time.Now().Format(time.RFC3339Nano))
 	_, err = vt.stmt.Step()
 	if err != nil {
-		vt.logger.Error("insert data", "error", err, "topic", msg.Topic(), "message_id", msg.MessageID())
+		vt.logger.Error("insert data", "error", err, "topic", msg.Topic(), "client_id", clientOpts.ClientID(), "message_id", msg.MessageID())
 		return
 	}
 	msg.Ack()
