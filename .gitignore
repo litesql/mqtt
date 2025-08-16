@@ -1,0 +1,5 @@
+*.so
+mqtt.h
+
+# Added by goreleaser init:
+dist/
