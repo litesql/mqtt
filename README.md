@@ -122,6 +122,7 @@ You can configure the connection to the broker by passing parameters to the VIRT
 
 | Param | Description | Default |
 |-------|-------------|---------|
+| client_id | Client ID used to connect to the server | |
 | servers | Comma-separated list of URLs to connect to the broker | |
 | username | Username to connect to broker | |
 | password | Password to connect to broker | |
