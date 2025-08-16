@@ -1,10 +1,12 @@
 package extension
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"io"
 	"log/slog"
+	"slices"
 	"sync"
 	"time"
 
@@ -16,7 +18,7 @@ type SubscriberVirtualTable struct {
 	virtualTableName string
 	tableName        string
 	client           mqtt.Client
-	subscriptions    map[string]subscription
+	subscriptions    []subscription
 	stmt             *sqlite.Stmt
 	stmtMu           sync.Mutex
 	mu               sync.Mutex
@@ -25,7 +27,8 @@ type SubscriberVirtualTable struct {
 }
 
 type subscription struct {
-	qos byte
+	topic string
+	qos   byte
 }
 
 func NewSubscriberVirtualTable(virtualTableName string, clientOptions *mqtt.ClientOptions, tableName string, conn *sqlite.Conn, loggerDef string) (*SubscriberVirtualTable, error) {
@@ -38,7 +41,7 @@ func NewSubscriberVirtualTable(virtualTableName string, clientOptions *mqtt.Clie
 	vtab := SubscriberVirtualTable{
 		virtualTableName: virtualTableName,
 		tableName:        tableName,
-		subscriptions:    make(map[string]subscription),
+		subscriptions:    make([]subscription, 0),
 		stmt:             stmt,
 	}
 
@@ -67,11 +70,11 @@ func NewSubscriberVirtualTable(virtualTableName string, clientOptions *mqtt.Clie
 }
 
 func (vt *SubscriberVirtualTable) BestIndex(in *sqlite.IndexInfoInput) (*sqlite.IndexInfoOutput, error) {
-	return &sqlite.IndexInfoOutput{}, nil
+	return &sqlite.IndexInfoOutput{EstimatedCost: 1000000}, nil
 }
 
 func (vt *SubscriberVirtualTable) Open() (sqlite.VirtualCursor, error) {
-	return nil, fmt.Errorf("SELECT operations on %q is not supported, exec SELECT on %q table", vt.tableName, vt.virtualTableName)
+	return newSubscriptionsCursor(vt.subscriptions), nil
 }
 
 func (vt *SubscriberVirtualTable) Disconnect() error {
@@ -80,11 +83,11 @@ func (vt *SubscriberVirtualTable) Disconnect() error {
 		err = vt.loggerCloser.Close()
 	}
 	if size := len(vt.subscriptions); size > 0 {
-		keys := make([]string, 0)
-		for k := range vt.subscriptions {
-			keys = append(keys, k)
+		topics := make([]string, 0)
+		for _, subscription := range vt.subscriptions {
+			topics = append(topics, subscription.topic)
 		}
-		tok := vt.client.Unsubscribe(keys...)
+		tok := vt.client.Unsubscribe(topics...)
 		tok.Wait()
 		err = errors.Join(err, tok.Error())
 	}
@@ -112,7 +115,7 @@ func (vt *SubscriberVirtualTable) Insert(values ...sqlite.Value) (int64, error) 
 
 	vt.mu.Lock()
 	defer vt.mu.Unlock()
-	if _, ok := vt.subscriptions[topic]; ok {
+	if vt.contains(topic) {
 		return 0, fmt.Errorf("already subscribed to the %q topic", topic)
 	}
 
@@ -120,6 +123,7 @@ func (vt *SubscriberVirtualTable) Insert(values ...sqlite.Value) (int64, error) 
 	if tok.Wait() && tok.Error() != nil {
 		return 0, fmt.Errorf("subscribe error: %w", tok.Error())
 	}
+	vt.subscriptions = append(vt.subscriptions, subscription{topic: topic, qos: byte(qos)})
 	return 1, nil
 }
 
@@ -134,18 +138,28 @@ func (vt *SubscriberVirtualTable) Replace(old sqlite.Value, new sqlite.Value, _ 
 func (vt *SubscriberVirtualTable) Delete(v sqlite.Value) error {
 	vt.mu.Lock()
 	defer vt.mu.Unlock()
-	topic := v.Text()
-	fmt.Println("DELETE", topic)
-	if _, ok := vt.subscriptions[v.Text()]; !ok {
-		return fmt.Errorf("not subscribed to the %q topic", topic)
+	index := v.Int()
+	// slices are 0 based
+	index--
+
+	if index >= 0 && index < len(vt.subscriptions) {
+		subscription := vt.subscriptions[index]
+		tok := vt.client.Unsubscribe(subscription.topic)
+		if tok.Wait() && tok.Error() != nil {
+			return fmt.Errorf("subscribe from %q: %w", subscription.topic, tok.Error())
+		}
+		vt.subscriptions = slices.Delete(vt.subscriptions, index, index+1)
 	}
-	tok := vt.client.Unsubscribe(topic)
-	tok.Wait()
-	err := tok.Error()
-	if err == nil {
-		delete(vt.subscriptions, topic)
+	return nil
+}
+
+func (vt *SubscriberVirtualTable) contains(topic string) bool {
+	for _, subscription := range vt.subscriptions {
+		if subscription.topic == topic {
+			return true
+		}
 	}
-	return err
+	return false
 }
 
 func (vt *SubscriberVirtualTable) messageHandler(c mqtt.Client, msg mqtt.Message) {
@@ -172,7 +186,62 @@ func (vt *SubscriberVirtualTable) onConnectionLost(client mqtt.Client, err error
 
 func (vt *SubscriberVirtualTable) onConnectHandler(client mqtt.Client) {
 	vt.logger.Debug("connected to broker", "virtual_table", vt.virtualTableName)
-	for topic, subscription := range vt.subscriptions {
-		client.Subscribe(topic, subscription.qos, vt.messageHandler)
+	for _, subscription := range vt.subscriptions {
+		client.Subscribe(subscription.topic, subscription.qos, vt.messageHandler)
 	}
+}
+
+type subscriptionsCursor struct {
+	data    []subscription
+	current subscription // current row that the cursor points to
+	rowid   int64        // current rowid .. negative for EOF
+}
+
+func newSubscriptionsCursor(data []subscription) *subscriptionsCursor {
+	slices.SortFunc(data, func(a, b subscription) int {
+		return cmp.Compare(a.topic, b.topic)
+	})
+	return &subscriptionsCursor{
+		data: data,
+	}
+}
+
+func (c *subscriptionsCursor) Next() error {
+	// EOF
+	if c.rowid < 0 || int(c.rowid) >= len(c.data) {
+		c.rowid = -1
+		return sqlite.SQLITE_OK
+	}
+	// slices are zero based
+	c.current = c.data[c.rowid]
+	c.rowid += 1
+
+	return sqlite.SQLITE_OK
+}
+
+func (c *subscriptionsCursor) Column(ctx *sqlite.VirtualTableContext, i int) error {
+	switch i {
+	case 0:
+		ctx.ResultText(c.current.topic)
+	case 1:
+		ctx.ResultInt(int(c.current.qos))
+	}
+	return nil
+}
+
+func (c *subscriptionsCursor) Filter(int, string, ...sqlite.Value) error {
+	c.rowid = 0
+	return c.Next()
+}
+
+func (c *subscriptionsCursor) Rowid() (int64, error) {
+	return c.rowid, nil
+}
+
+func (c *subscriptionsCursor) Eof() bool {
+	return c.rowid < 0
+}
+
+func (c *subscriptionsCursor) Close() error {
+	return nil
 }

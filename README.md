@@ -1,6 +1,5 @@
 # sqlite-mqtt
-SQLite Extension to integrate with MQTT servers
-
+SQLite Extension to integrate with MQTT servers.
 
 ## Installation
 
@@ -68,6 +67,25 @@ TABLE mqtt_data(
   payload BLOB,
   timestamp DATETIME
 )
+```
+
+### Manage subscriptions
+
+Query the subscription virtual table (the virtual table created using **mqtt_sub**) to view all the active subscriptions for the current SQLite connection.
+
+```sql
+SELECT * FROM temp.sub;
+┌─────────────┬─────┐
+│    topic    │ qos │
+├─────────────┼─────┤
+│ 'my/topic'  │ 0   │
+└─────────────┴─────┘
+```
+
+Delete the row to unsubscribe from the topic:
+
+```sql
+DELETE FROM temp.sub WHERE topic = 'my/topic';
 ```
 
 ## Configuring
