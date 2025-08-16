@@ -22,6 +22,9 @@ sqlite3
 
 # Load the extension
 .load ./mqtt
+
+# check version (optional)
+SELECT mqtt_info();
 ```
 
 ### Subscriber
