@@ -72,7 +72,7 @@ TABLE mqtt_data(
 
 ## Configuring
 
-You can configure the behaviour by passing parameters to the VIRTUAL TABLE.
+You can configure the connection to the broker by passing parameters to the VIRTUAL TABLE.
 
 | Param | Description | Default |
 |-------|-------------|---------|
@@ -81,5 +81,5 @@ You can configure the behaviour by passing parameters to the VIRTUAL TABLE.
 | password | Password to connect to broker | |
 | timeout | Timeout in milliseconds | |
 |	keep_alive | Keep alive| 30 |
-| table | Table name where to store the incomming messages. Only for mqtt_sub | mqtt_data |
+| table | Name of the table where incoming messages will be stored. Only for mqtt_sub | mqtt_data |
 | logger | Log errors to stdout, stderr or file:/path/to/file.log |
