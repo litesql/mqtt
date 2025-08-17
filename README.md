@@ -131,5 +131,9 @@ You can configure the connection to the broker by passing parameters to the VIRT
 | password | Password to connect to broker | |
 | timeout | Timeout in milliseconds | |
 |	keep_alive | Keep alive| 30 |
+| insecure | Insecure skip TLS validation | false |
+| cert_file | TLS: Path to certificate file | |
+| cert_key_file | TLS: Path to certificate key file | |
+| ca_file | TLS: Path to CA certificate file | |
 | table | Name of the table where incoming messages will be stored. Only for mqtt_sub | mqtt_data |
 | logger | Log errors to stdout, stderr or file:/path/to/file.log |

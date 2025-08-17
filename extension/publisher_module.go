@@ -1,6 +1,8 @@
 package extension
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"net/url"
 	"os"
@@ -23,8 +25,17 @@ func (m *PublisherModule) Connect(conn *sqlite.Conn, args []string, declare func
 		virtualTableName = config.DefaultPublisherVTabName
 	}
 
-	clientOptions := mqtt.NewClientOptions()
-	var logger string
+	var (
+		clientOptions = mqtt.NewClientOptions()
+
+		certFilePath    string
+		certKeyFilePath string
+		caFilePath      string
+		insecure        bool
+
+		err    error
+		logger string
+	)
 	if len(args) > 3 {
 		for _, opt := range args[3:] {
 			k, v, ok := strings.Cut(opt, "=")
@@ -65,11 +76,48 @@ func (m *PublisherModule) Connect(conn *sqlite.Conn, args []string, declare func
 				clientOptions.Username = v
 			case config.Password:
 				clientOptions.Password = v
+			case config.CertFile:
+				certFilePath = v
+			case config.CertKeyFile:
+				certKeyFilePath = v
+			case config.CertCAFile:
+				caFilePath = v
+			case config.Insecure:
+				insecure, err = strconv.ParseBool(v)
+				if err != nil {
+					return nil, fmt.Errorf("invalid %q option: %v", k, err)
+				}
 			case config.Logger:
 				logger = v
 			}
 		}
 	}
+
+	tlsConfig := tls.Config{
+		InsecureSkipVerify: insecure,
+	}
+
+	if certFilePath != "" && certKeyFilePath != "" {
+		clientCert, err := tls.LoadX509KeyPair(certFilePath, certKeyFilePath)
+		if err != nil {
+			return nil, fmt.Errorf("error loading client certificate: %w", err)
+		}
+		tlsConfig.Certificates = []tls.Certificate{clientCert}
+	}
+
+	if caFilePath != "" {
+		caCertPEM, err := os.ReadFile(caFilePath)
+		if err != nil {
+			return nil, fmt.Errorf("error loading CA certificate: %w", err)
+		}
+		caCertPool := x509.NewCertPool()
+		if !caCertPool.AppendCertsFromPEM(caCertPEM) {
+			return nil, fmt.Errorf("error appending CA certificate to pool")
+		}
+		tlsConfig.RootCAs = caCertPool
+	}
+
+	clientOptions = clientOptions.SetTLSConfig(&tlsConfig)
 
 	vtab, err := NewPublisherVirtualTable(virtualTableName, clientOptions, logger)
 	if err != nil {
