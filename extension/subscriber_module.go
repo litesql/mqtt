@@ -1,8 +1,11 @@
 package extension
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"net/url"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -25,10 +28,17 @@ func (m *SubscriberModule) Connect(conn *sqlite.Conn, args []string, declare fun
 		virtualTableName = config.DefaultSubscriberVTabName
 	}
 
-	clientOptions := mqtt.NewClientOptions()
 	var (
+		clientOptions = mqtt.NewClientOptions()
+
+		certFilePath    string
+		certKeyFilePath string
+		caFilePath      string
+		insecure        bool
+
 		tableName string
 		logger    string
+		err       error
 	)
 	if len(args) > 3 {
 		for _, opt := range args[3:] {
@@ -70,6 +80,17 @@ func (m *SubscriberModule) Connect(conn *sqlite.Conn, args []string, declare fun
 				clientOptions.Username = v
 			case config.Password:
 				clientOptions.Password = v
+			case config.CertFile:
+				certFilePath = v
+			case config.CertKeyFile:
+				certKeyFilePath = v
+			case config.CertCAFile:
+				caFilePath = v
+			case config.Insecure:
+				insecure, err = strconv.ParseBool(v)
+				if err != nil {
+					return nil, fmt.Errorf("invalid %q option: %v", k, err)
+				}
 			case config.TableName:
 				tableName = v
 			case config.Logger:
@@ -77,6 +98,32 @@ func (m *SubscriberModule) Connect(conn *sqlite.Conn, args []string, declare fun
 			}
 		}
 	}
+
+	tlsConfig := tls.Config{
+		InsecureSkipVerify: insecure,
+	}
+
+	if certFilePath != "" && certKeyFilePath != "" {
+		clientCert, err := tls.LoadX509KeyPair(certFilePath, certKeyFilePath)
+		if err != nil {
+			return nil, fmt.Errorf("error loading client certificate: %w", err)
+		}
+		tlsConfig.Certificates = []tls.Certificate{clientCert}
+	}
+
+	if caFilePath != "" {
+		caCertPEM, err := os.ReadFile(caFilePath)
+		if err != nil {
+			return nil, fmt.Errorf("error loading CA certificate: %w", err)
+		}
+		caCertPool := x509.NewCertPool()
+		if !caCertPool.AppendCertsFromPEM(caCertPEM) {
+			return nil, fmt.Errorf("error appending CA certificate to pool")
+		}
+		tlsConfig.RootCAs = caCertPool
+	}
+
+	clientOptions = clientOptions.SetTLSConfig(&tlsConfig)
 
 	if tableName == "" {
 		tableName = config.DefaultTableName
@@ -86,7 +133,7 @@ func (m *SubscriberModule) Connect(conn *sqlite.Conn, args []string, declare fun
 		return nil, fmt.Errorf("table name %q is invalid", tableName)
 	}
 
-	err := conn.Exec(fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s(
+	err = conn.Exec(fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s(
 	    client_id TEXT,
 		message_id INTEGER,
 		topic TEXT,
