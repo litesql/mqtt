@@ -135,5 +135,6 @@ You can configure the connection to the broker by passing parameters to the VIRT
 | cert_file | TLS: Path to certificate file | |
 | cert_key_file | TLS: Path to certificate key file | |
 | ca_file | TLS: Path to CA certificate file | |
+| storage | Path to a directory to persist client data (for QoS 1 and 2) | |
 | table | Name of the table where incoming messages will be stored. Only for mqtt_sub | mqtt_data |
 | logger | Log errors to stdout, stderr or file:/path/to/file.log |

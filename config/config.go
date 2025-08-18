@@ -12,6 +12,7 @@ const (
 	CertKeyFile = "cert_key_file" // TLS: path to .pem certificate key file
 	CertCAFile  = "ca_file"       // TLS: path to CA certificate file
 	Insecure    = "insecure"      // TLS: Insecure skip TLS verification
+	Storage     = "storage"       // Path to a directory to persist client data (for QoS 1 and 2)
 	Logger      = "logger"        // Log errors to "stdout, stderr or file:/path/to/log.txt"
 
 	// Subscribe module config

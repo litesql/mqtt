@@ -91,10 +91,16 @@ func (m *SubscriberModule) Connect(conn *sqlite.Conn, args []string, declare fun
 				if err != nil {
 					return nil, fmt.Errorf("invalid %q option: %v", k, err)
 				}
+			case config.Storage:
+				if v != "" {
+					clientOptions.SetStore(mqtt.NewFileStore(v))
+				}
 			case config.TableName:
 				tableName = v
 			case config.Logger:
 				logger = v
+			default:
+				return nil, fmt.Errorf("unknown option: %s", k)
 			}
 		}
 	}
