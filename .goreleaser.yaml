@@ -22,6 +22,21 @@ builds:
       - CGO_ENABLED=1
       - CC=zig cc -target x86_64-linux-gnu
 
+  - id: mqtt_linux_arm64
+    binary: mqtt
+    buildmode: "c-shared"
+    flags:
+      - -tags=zig
+    ldflags:
+    - -s -w -X github.com/litesql/mqtt/extension.version={{.Version}} -X github.com/litesql/mqtt/extension.commit={{.Commit}} -X github.com/litesql/mqtt/extension.date={{.Date}}
+    goos:
+      - linux
+    goarch:
+      - arm64
+    env:
+      - CGO_ENABLED=1
+      - CC=zig cc -target aarch64-linux-gnu
+
   - id: mqtt_windows
     binary: mqtt
     buildmode: "c-shared"
@@ -54,7 +69,7 @@ builds:
 archives:
   - id: mqtt
     formats: [tar.gz]
-    ids: [mqtt, mqtt_windows, mqtt_darwin]
+    ids: [mqtt, mqtt_linux_arm64, mqtt_windows, mqtt_darwin]
     # this name template makes the OS and Arch compatible with the results of `uname`.
     name_template: >-
       mqtt_v

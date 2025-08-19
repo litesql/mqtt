@@ -51,7 +51,7 @@ func (vt *PublisherVirtualTable) BestIndex(in *sqlite.IndexInfoInput) (*sqlite.I
 }
 
 func (vt *PublisherVirtualTable) Open() (sqlite.VirtualCursor, error) {
-	return nil, fmt.Errorf("SELECT operations on %q is not supported", vt.name)
+	return nil, fmt.Errorf("SELECT operations on %q are not supported", vt.name)
 }
 
 func (vt *PublisherVirtualTable) Disconnect() error {
@@ -89,15 +89,15 @@ func (vt *PublisherVirtualTable) Insert(values ...sqlite.Value) (int64, error) {
 }
 
 func (vt *PublisherVirtualTable) Update(_ sqlite.Value, _ ...sqlite.Value) error {
-	return fmt.Errorf("UPDATE operations on %q is not supported", vt.name)
+	return fmt.Errorf("UPDATE operations on %q are not supported", vt.name)
 }
 
 func (vt *PublisherVirtualTable) Replace(old sqlite.Value, new sqlite.Value, _ ...sqlite.Value) error {
-	return fmt.Errorf("UPDATE operations on %q is not supported", vt.name)
+	return fmt.Errorf("UPDATE operations on %q are not supported", vt.name)
 }
 
 func (vt *PublisherVirtualTable) Delete(_ sqlite.Value) error {
-	return fmt.Errorf("DELETE operations on %q is not supported", vt.name)
+	return fmt.Errorf("DELETE operations on %q are not supported", vt.name)
 }
 
 func (vt *PublisherVirtualTable) onConnectionLost(client mqtt.Client, err error) {

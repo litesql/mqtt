@@ -129,11 +129,11 @@ func (vt *SubscriberVirtualTable) Insert(values ...sqlite.Value) (int64, error) 
 }
 
 func (vt *SubscriberVirtualTable) Update(_ sqlite.Value, _ ...sqlite.Value) error {
-	return fmt.Errorf("UPDATE operations on %q is not supported", vt.virtualTableName)
+	return fmt.Errorf("UPDATE operations on %q are not supported", vt.virtualTableName)
 }
 
 func (vt *SubscriberVirtualTable) Replace(old sqlite.Value, new sqlite.Value, _ ...sqlite.Value) error {
-	return fmt.Errorf("UPDATE operations on %q is not supported", vt.virtualTableName)
+	return fmt.Errorf("UPDATE operations on %q are not supported", vt.virtualTableName)
 }
 
 func (vt *SubscriberVirtualTable) Delete(v sqlite.Value) error {
