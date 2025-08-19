@@ -12,6 +12,7 @@
             "darwin-amd64": "mqtt_{version}_Darwin_x86_64.tar.gz",
             "darwin-arm64": "mqtt_{version}_Darwin_arm64.tar.gz",
             "linux-amd64": "mqtt_{version}_Linux_x86_64.tar.gz",
+            "linux-arm64": "mqtt_{version}_Linux_arm64.tar.gz",
             "windows-amd64": "mqtt_{version}_Windows_x86_64.zip"
         }
     }
