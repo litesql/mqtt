@@ -1,17 +1,22 @@
 # sqlite-mqtt
 SQLite Extension to integrate with MQTT servers.
 
+![architecture](./mqtt.png)
+
 ## Installation
 
 Download **mqtt** extension from the [releases page](https://github.com/litesql/mqtt/releases).
+Here's a great article that explains [how to install the SQLite extension.](https://antonz.org/install-sqlite-extension/)
 
 ### Compiling from source
 
-- [Go 1.24+](https://go.dev) is required.
+- [Go 1.24+](https://go.dev) and CGO_ENABLED=1 is required.
 
 ```sh
 go build -ldflags="-s -w" -buildmode=c-shared -o mqtt.so
 ```
+
+- Use .so extension for Linux, .dylib for MacOS and .dll for Windows
 
 ## Basic usage
 
